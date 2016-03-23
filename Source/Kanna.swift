@@ -202,7 +202,18 @@ public final class XMLNodeSet {
         return html.isEmpty == false ? html : nil
     }
     
+    // exclude [CDATA]
     public var text: String? {
+        let html = nodes.reduce("") {
+            if let text = $1.text {
+                return $0.deleteCDATA() + text.deleteCDATA()
+            }
+            return $0.deleteCDATA()
+        }
+        return html.deleteCDATA()
+    }
+    
+    public var originalText: String? {
         let html = nodes.reduce("") {
             if let text = $1.text {
                 return $0 + text
@@ -250,5 +261,26 @@ extension XMLNodeSet: SequenceType {
             }
             return nil
         }
+    }
+}
+
+extension String {
+    private func deleteCDATA() -> String {
+        var result = self
+        if result.containsString("<![CDATA") {
+            let pattern = "<!\\[CDATA\\[(.*?)\\]\\]>"
+            do {
+                let regex = try NSRegularExpression(pattern: pattern, options: .CaseInsensitive)
+                let textNSString = self as NSString
+                if let matchResult = regex.firstMatchInString(self, options: .ReportCompletion, range: NSMakeRange(0, textNSString.length)) {
+                    let location = matchResult.range.location + 9
+                    let length = matchResult.range.length - 12
+                    result = textNSString.substringWithRange(NSMakeRange(location, length)) as String
+                }
+            } catch {
+                NSLog("NSRegularExpression Error. \(error)")
+            }
+        }
+        return result.stringByTrimmingCharactersInSet(.whitespaceAndNewlineCharacterSet())
     }
 }
